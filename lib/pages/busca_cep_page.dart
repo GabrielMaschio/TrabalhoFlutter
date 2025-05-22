@@ -3,7 +3,10 @@ import 'package:delightful_toast/toast/components/toast_card.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:myapp/provider/cep_provider.dart';
 import 'package:myapp/widget/button_widget.dart';
+import 'package:myapp/widget/cep_info_widget.dart';
+import 'package:provider/provider.dart';
 
 class BuscaCep extends StatefulWidget {
   const BuscaCep({super.key});
@@ -13,19 +16,71 @@ class BuscaCep extends StatefulWidget {
 }
 
 class _BuscaCepState extends State<BuscaCep> {
-  bool searching = false;
   final _formKey = GlobalKey<FormState>();
-
+  final _cepController = TextEditingController();
   final cepMaskFormatter = MaskTextInputFormatter(
     mask: '#####-###',
     filter: { "#": RegExp(r'\d') },
   );
 
   @override
+  void dispose() {
+    _cepController.dispose();
+    super.dispose();
+  }
+
+  Widget buildSubmit() {
+    return Builder(
+      builder: (context) {
+        return ButtonWidget(
+          text: 'Buscar',
+          onClicked: () async {
+            if (!_formKey.currentState!.validate()) return;
+
+            // pegando o provider *sem* listen
+            final provider = Provider.of<CepProvider>(context, listen: false);
+
+            // dispara a busca e aguarda
+            await provider.searchCep(cepMaskFormatter.getUnmaskedText());
+
+            // mostra toast de acordo com o resultado
+            if (provider.errorMessage != null) {
+              DelightToastBar(
+                builder: (_) => ToastCard(
+                  leading: Icon(Icons.error_outline, size: 32, color: Colors.red),
+                  title: Text(provider.errorMessage!,
+                      style: TextStyle(fontSize: 14, color: Colors.black)),
+                ),
+                position: DelightSnackbarPosition.top,
+                autoDismiss: true,
+                snackbarDuration: Duration(seconds: 3),
+              ).show(context);
+            } else {
+              DelightToastBar(
+                builder: (_) => ToastCard(
+                  leading: Icon(Icons.check_circle, size: 32, color: Colors.green),
+                  title: Text('CEP encontrado com sucesso!',
+                      style: TextStyle(fontSize: 14, color: Colors.black)),
+                ),
+                position: DelightSnackbarPosition.top,
+                autoDismiss: true,
+                snackbarDuration: Duration(seconds: 3),
+              ).show(context);
+            }
+          },
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // aqui sim escutamos as mudanças
+    final provider = context.watch<CepProvider>();
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Buscar CEP'),
+        title: const Text('Buscar CEP'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -33,22 +88,24 @@ class _BuscaCepState extends State<BuscaCep> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Form(
-              key: _formKey, // Associa o Form com o GlobalKey
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.map, size: 48.0),
-                  SizedBox(height: 16),
+                  Icon(Icons.map, size: 48),
+                  const SizedBox(height: 16),
                   TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Digite o seu CEP',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10),
-                    ),
+                    controller: _cepController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [cepMaskFormatter],
+                    decoration: InputDecoration(
+                      labelText: 'Digite o seu CEP',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Informe o CEP';
@@ -58,24 +115,21 @@ class _BuscaCepState extends State<BuscaCep> {
                       }
                       return null;
                     },
-                    onSaved: (value) {
-                      //final cep = cepMaskFormatter.getUnmaskedText();
-                      // Salve o CEP conforme necessário
-                    },
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   buildSubmit(),
+                  const SizedBox(height: 20),
+                  if (provider.cepData != null)
+                    CepInfoWidget(cepModel: provider.cepData!),
                 ],
               ),
             ),
           ),
-          if (searching)
+
+          if (provider.isLoading)
             Container(
-              width: double.infinity,
-              height: double.infinity,
-              // ignore: deprecated_member_use
               color: Colors.black.withOpacity(0.5),
-              child: Center(
+              child: const Center(
                 child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
@@ -83,44 +137,4 @@ class _BuscaCepState extends State<BuscaCep> {
       ),
     );
   }
-
-  Widget buildSubmit() => Builder(
-        builder: (context) => ButtonWidget(
-          text: 'Buscar',
-          onClicked: () async {
-            // Chama a validação de todos os campos do Form
-            if (_formKey.currentState != null && _formKey.currentState!.validate()) {
-              _formKey.currentState!.save();
-              // Ativa o efeito de loading
-              setState(() {
-                searching = true;
-              });
-              await Future.delayed(Duration(seconds: 2));
-              setState(() {
-                searching = false;
-              });
-              final message = 'Dados encontrados com sucesso!';
-              DelightToastBar(
-                builder: (context) {
-                  return ToastCard(
-                    leading: Icon(Icons.notifications, size: 32, color: Colors.black87),
-                    title: Text(
-                      message,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  );
-                },
-                position: DelightSnackbarPosition.top,
-                autoDismiss: true,
-                snackbarDuration: Duration(seconds: 3),
-              // ignore: use_build_context_synchronously
-              ).show(context);
-            }
-          },
-        ),
-      );
 }

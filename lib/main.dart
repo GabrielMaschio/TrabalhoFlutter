@@ -1,10 +1,16 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:myapp/provider/cep_provider.dart';
+import 'package:myapp/repository/cep_repository.dart';
+import 'package:provider/provider.dart';
 import 'package:myapp/pages/login_page.dart';
 
+
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(providers: [ChangeNotifierProvider(create: (_) => CepProvider(repository: CepRepository()))], 
+    child: const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -12,58 +18,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: LoginPage(),
+    return MaterialApp(
+      home: const LoginPage(),
       debugShowCheckedModeBanner: false,
-      locale: Locale('pt', 'BR'),
-      supportedLocales: [
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [
         Locale('en', 'US'),
         Locale('pt', 'BR'),
       ],
-      localizationsDelegates: [
+      localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-    );
-  }
-}
-
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  var numeroGerado = 0;
-
-  int _gerarNumeroAleatorio() {
-    math.Random numeroAleatorio = math.Random();
-    return numeroAleatorio.nextInt(1000);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Meu App'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: Center(child: Text(numeroGerado.toString())),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.purple[800],
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.refresh),
-        onPressed: () {
-          setState(() {
-            numeroGerado = _gerarNumeroAleatorio();
-          });
-        },
-      ),
     );
   }
 }
